@@ -8327,7 +8327,7 @@ test('each session opens on its work model and the observer starts fresh after a
       sessionId: observer,
       ...(model ? { model } : {}),
       restricted: true,
-      restartable: true,
+      newRequest: true,
       systemPrompt: 'Fixture system',
       ...sandbox,
       tools: [],
@@ -8349,6 +8349,112 @@ test('each session opens on its work model and the observer starts fresh after a
   assert.ok(requests[1]!.history.includes('Synthetic first batch'));
   assert.ok(!requests[2]!.history.includes('Synthetic second batch'));
   assert.ok(requests[3]!.history.includes('Synthetic third batch'));
+});
+
+test('a new request after the cache went cold leaves large earlier tool results out of the model context', async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), 'nod-earlier-results-'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const requests: string[][] = [];
+  const script: string[] = [];
+  let answeredAgo = 0;
+  const agent = createPiAgent({
+    provider: 'openai',
+    apiKey: 'fixture-key',
+    sessionRoot: directory,
+    createSession: async (options) => {
+      const result = await createAgentSession(options);
+      result.session.setActiveToolsByName(result.session.getAllTools().map((tool) => tool.name));
+      result.session.agent.streamFunction = (model, context) => {
+        requests.push(context.messages.map((message) => JSON.stringify(message)));
+        const step = script.shift() ?? 'answer';
+        const message: AssistantMessage = {
+          ...fauxAssistantMessage(
+            step === 'answer'
+              ? [{ type: 'text', text: `Conclusion ${requests.length}.` }]
+              : [{ type: 'toolCall', id: randomUUID(), name: step, arguments: {} }],
+          ),
+          provider: model.provider,
+          model: model.id,
+          api: model.api,
+          stopReason: step === 'answer' ? 'stop' : 'toolUse',
+          timestamp: Date.now() - answeredAgo,
+        };
+        const stream = createAssistantMessageEventStream();
+        stream.push({ type: 'done', reason: message.stopReason as 'stop', message });
+        return stream;
+      };
+      return result;
+    },
+  });
+  t.after(() => agent.dispose());
+  const threadId = randomUUID();
+  let reads = 0;
+  const turn = async (prompt: string, steps: string[], newRequest = true) => {
+    script.push(...steps);
+    const session = await agent.open({
+      ...fakeExecution(threadId, randomUUID()),
+      newRequest,
+      systemPrompt: 'Fixture system',
+      ...sandbox,
+      tools: [
+        {
+          name: 'read_large',
+          description: 'Read a large synthetic source.',
+          parameters: { type: 'object', properties: {} },
+          eager: true,
+          execute: async () => ({
+            content: [{ type: 'text', text: `LARGE-RESULT-${++reads} ` + 'x'.repeat(5000) }],
+          }),
+        },
+        {
+          name: 'read_small',
+          description: 'Read a small synthetic source.',
+          parameters: { type: 'object', properties: {} },
+          eager: true,
+          execute: async () => ({ content: [{ type: 'text', text: 'SMALL-RESULT' }] }),
+        },
+      ],
+      shouldStop: () => false,
+      onEvent() {},
+    });
+    await session.prompt(prompt, []);
+    await session.dispose();
+    await setTimeout(2);
+  };
+  const text = (request: string[]) => request.join('\n');
+  answeredAgo = 6 * 60_000;
+  await turn('Synthetic research request', ['read_large', 'read_small', 'answer']);
+  answeredAgo = 0;
+  await turn('What did the first source say?', ['read_large', 'answer']);
+  await turn('Warm follow-up', ['answer']);
+  answeredAgo = 6 * 60_000;
+  await turn('Synthetic question asked', ['answer']);
+  await turn('Synthetic answer to the question', ['answer'], false);
+  openLocalSession(join(directory, threadId)).appendUsage(
+    'cache_warm',
+    'openai',
+    'gpt-6.1-sol',
+    fauxAssistantMessage('').usage,
+  );
+  await turn('Request while the cache was kept warm', ['answer']);
+  const followUp = text(requests[3]!);
+  assert.equal(followUp.includes('LARGE-RESULT-1'), false);
+  assert.match(
+    followUp,
+    /This read_large result \(5,015 characters\) came from an earlier request and is no longer in context\. Run it again if you need its details\./,
+  );
+  assert.ok(followUp.includes('"name":"read_large"'));
+  assert.ok(followUp.includes('SMALL-RESULT'));
+  assert.ok(followUp.includes('Synthetic research request'));
+  assert.ok(followUp.includes('Conclusion 3.'));
+  assert.ok(followUp.includes('What did the first source say?'));
+  assert.ok(text(requests[4]!).includes('LARGE-RESULT-2'));
+  assert.deepEqual(requests[4]!.slice(0, requests[3]!.length), requests[3]);
+  for (const later of [5, 7, 8]) {
+    assert.ok(text(requests[later]!).includes('LARGE-RESULT-2'));
+    assert.deepEqual(requests[later]!.slice(0, requests[later - 1]!.length), requests[later - 1]);
+  }
+  assert.ok((await localText(join(directory, threadId))).includes('LARGE-RESULT-1'));
 });
 
 test('a failed model request leaves none of its unanswered input for later turns', async (t) => {

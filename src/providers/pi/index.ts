@@ -13,6 +13,7 @@ import {
   clampThinkingLevel,
   contentText,
   type AssistantMessage,
+  type ToolResultMessage,
 } from '@earendil-works/pi-ai';
 import { Agent as Connections, Dispatcher1Wrapper, buildConnector } from 'undici';
 import { Compile } from 'typebox/compile';
@@ -48,6 +49,8 @@ import {
   openLocalSession,
   removedImage,
   recoveryContext,
+  requestStart,
+  startRequest,
 } from './checkpoint.ts';
 import { threadIdentity } from '../../ports/thread-identity.ts';
 import { createPiUsageTracker, piUsageMetrics, usageId } from './usage.ts';
@@ -400,6 +403,36 @@ function recentImages(pi: ExtensionAPI) {
   });
 }
 
+const keptResultCharacters = 2000;
+
+function earlierResults(started: number) {
+  const prune = <T extends { role: string }>(messages: T[]) =>
+    messages.map((message) => {
+      if (message.role !== 'toolResult') return message;
+      const result = message as unknown as ToolResultMessage;
+      if (result.timestamp >= started) return message;
+      const size = contentText(result.content).length;
+      return size > keptResultCharacters
+        ? {
+            ...message,
+            content: [
+              {
+                type: 'text' as const,
+                text: `This ${result.toolName} result (${size.toLocaleString('en-US')} characters) came from an earlier request and is no longer in context. Run it again if you need its details.`,
+              },
+            ],
+          }
+        : message;
+    });
+  return (pi: ExtensionAPI) => {
+    pi.on('context', ({ messages }) => ({ messages: prune(messages) }));
+    pi.on('session_before_compact', ({ preparation }) => {
+      preparation.messagesToSummarize = prune(preparation.messagesToSummarize);
+      preparation.turnPrefixMessages = prune(preparation.turnPrefixMessages);
+    });
+  };
+}
+
 function completeAssistantMessages(pi: ExtensionAPI) {
   pi.on('message_end', ({ message }) => {
     if (message.role !== 'assistant') return;
@@ -588,17 +621,28 @@ export function createPiAgent(options: {
       closeInterruptedCalls(manager);
       const prior = manager.buildSessionContext().messages;
       const last = prior.findLast((message) => message.role === 'assistant');
-      const priorTokens =
-        input.restartable === true
-          ? prior.reduce((total, message) => total + estimateTokens(message), 0)
-          : 0;
+      const cachedAt = Math.max(
+        last?.timestamp ?? 0,
+        ...manager
+          .getEntries()
+          .flatMap((entry) =>
+            entry.type === 'usage' && entry.kind === 'cache_warm'
+              ? [Date.parse(entry.timestamp)]
+              : [],
+          ),
+      );
+      const cold =
+        !last ||
+        Date.now() - cachedAt >= warmCache ||
+        ![model.id, connection?.textModel?.id].includes((last as { model?: string }).model);
+      const restartable = input.restricted === true && input.newRequest === true;
+      const priorTokens = restartable
+        ? prior.reduce((total, message) => total + estimateTokens(message), 0)
+        : 0;
       const restart =
-        input.restartable === true &&
+        restartable &&
         prior.length > 0 &&
-        (!last ||
-          Date.now() - last.timestamp >= warmCache ||
-          priorTokens > budget.compaction.keepRecentTokens ||
-          ![model.id, connection?.textModel?.id].includes((last as { model?: string }).model));
+        (cold || priorTokens > budget.compaction.keepRecentTokens);
       const cached: { owner?: string; stable?: string[] } = { owner: input.ownerContext };
       const keepCache =
         restart &&
@@ -617,6 +661,7 @@ export function createPiAgent(options: {
           null,
           priorTokens,
         );
+      if (input.newRequest && cold) startRequest(manager);
       const sandboxTools = input.restricted ? [] : createSandbox(input.workspace, input.timeZone);
       const tools: ToolDefinition[] = [
         ...sandboxTools.map((definition): ToolDefinition => ({
@@ -764,6 +809,7 @@ export function createPiAgent(options: {
                   }),
               ]
             : []),
+          earlierResults(requestStart(manager)),
           recentImages,
           draft2020Tools,
           audioContext(manager, readsNativeAudio(model) && Boolean(input.readAudio)),
