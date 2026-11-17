@@ -82,7 +82,7 @@ export function trustDecision(words: TrustWords) {
 const plain = (text: string) =>
   text
     .normalize('NFKD')
-    .replace(/[̀-ͯ]/g, '')
+    .replace(/(\p{L})[̀-ͯ]+/gu, '$1')
     .normalize('NFC')
     .toLowerCase()
     .replace(/[“”«»„]/g, '"')
