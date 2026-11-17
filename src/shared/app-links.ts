@@ -18,6 +18,7 @@ export function appPagePath(path: string) {
 }
 
 export const appPageLinks = Object.entries(appPages)
+  .filter(([path]) => path !== '/report-bug')
   .map(([path, label]) => `[${label}](${path})`)
   .join(', ');
 

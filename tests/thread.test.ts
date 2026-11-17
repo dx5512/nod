@@ -3210,7 +3210,7 @@ test(
             )
           ).rows.map((row) => row.text as string);
         await waitFor(async () => (await shown()).length === 1);
-        assert.ok((await shown())[0]!.endsWith('[Report this bug to the Nod team](/report-bug).'));
+        assert.match((await shown())[0]!, /\]\(\/report-bug\)/);
       });
 
       await t.test('a reached spending limit pauses all but owner messages', async (t) => {
@@ -10324,6 +10324,7 @@ test(
               assert.equal(turn.status, 'failed');
               assert.equal(presentedFailures.length, 0);
               assert.ok(shown.includes(turn.error));
+              assert.doesNotMatch(shown, /\/report-bug/);
               assert.match(shown, /Synthetic alternative connection\./);
               assert.match(shown, /\]\(\/settings\/models\)/);
               assert.ok(turn.error.length <= 2000);

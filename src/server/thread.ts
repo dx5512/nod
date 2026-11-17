@@ -1267,7 +1267,7 @@ async function failTurn(
   const message = modelFailure
     ? `${body}\n\n[Change the model or check its connection in Settings > Models](/settings/models).`
     : failure === 'unknown'
-      ? `${body}\n\n[Report this bug to the Nod team](/report-bug).`
+      ? `${body}\n\nIf it keeps happening, [report it to the Nod team](/report-bug).`
       : body;
   await transaction(async (client) => {
     if ((await lockThread(client)).id !== turn.thread_id) return;

@@ -261,7 +261,7 @@ Select **Report bug** at the top of the chat and describe what happened. The dia
 
 After first-time setup, a short invitation points to **Report bug**. Dismiss it with its close button or press Escape while the invitation or **Report bug** is focused; it stays dismissed on that device.
 
-When something in Nod fails, Nod offers **Report bug** in its reply, and a request that stops on an unexpected error ends with a **Report this bug to the Nod team** link. Both open the same dialog. In Telegram or WhatsApp, the link opens Nod on the computer where it runs, so you review the report there before sending.
+When something in Nod fails, Nod offers **Report bug** in its reply, and a request that stops on an unexpected error ends with a **Report this bug to the Nod team** link. Both open the same dialog. In Telegram or WhatsApp, the link opens the report in the Nod desktop app when you tap it on the computer where Nod is installed. On another device, open Nod on that computer and select **Report bug**. Either way, you review the report before it is sent.
 
 **Include diagnostic report** starts selected for every feedback category until you change it. It adds recent messages, tool inputs and results, errors, and app activity to help fix problems and improve Nod. Known secrets and recognized personal details are masked, but redaction can miss information.
 

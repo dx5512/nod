@@ -105,11 +105,10 @@ export function FeedbackLauncher({
           >
             <div className="feedback-discovery-heading">
               <BrandMark small />
-              <h2 id={title}>Help shape Nod</h2>
+              <h2 id={title}>Something not working?</h2>
             </div>
             <p id={description}>
-              Tell us what’s working, what went wrong, or what you’d like to see. We read every
-              message.
+              Report it here with a diagnostic report you can review first. Ideas are welcome too.
             </p>
             <button
               type="button"

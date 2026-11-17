@@ -461,6 +461,11 @@ function AuthenticatedApp({
     });
   }, [onboarding]);
   useEffect(() => {
+    if (path !== '/report-bug') return;
+    replaceNavigation('/');
+    void openFeedback();
+  }, [path]);
+  useEffect(() => {
     if (path !== '/memory' || !session.settings!.onboardingCompleted) return;
     replaceNavigation('/settings/memory');
   }, [path, session.settings!.onboardingCompleted]);
@@ -756,7 +761,7 @@ export function App({ sessionState }: { sessionState: ReturnType<typeof useSessi
       .catch(() => {});
     return stop;
   }, []);
-  useEffect(() => {
+  useLayoutEffect(() => {
     return subscribeNavigation(() => setPath(window.location.pathname));
   }, []);
   useEffect(
