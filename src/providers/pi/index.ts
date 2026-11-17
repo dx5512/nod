@@ -418,7 +418,7 @@ function earlierResults(started: number) {
             content: [
               {
                 type: 'text' as const,
-                text: `This ${result.toolName} result (${size.toLocaleString('en-US')} characters) came from an earlier request and is no longer in context. Run it again if you need its details.`,
+                text: `This ${result.toolName} result (${size.toLocaleString('en-US')} characters) came from an earlier request and is no longer in context. If you need its details, read the source again. Never repeat an action only to see its result.`,
               },
             ],
           }

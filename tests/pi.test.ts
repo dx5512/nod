@@ -8441,7 +8441,7 @@ test('a new request after the cache went cold leaves large earlier tool results 
   assert.equal(followUp.includes('LARGE-RESULT-1'), false);
   assert.match(
     followUp,
-    /This read_large result \(5,015 characters\) came from an earlier request and is no longer in context\. Run it again if you need its details\./,
+    /This read_large result \(5,015 characters\) came from an earlier request and is no longer in context\. If you need its details, read the source again\. Never repeat an action only to see its result\./,
   );
   assert.ok(followUp.includes('"name":"read_large"'));
   assert.ok(followUp.includes('SMALL-RESULT'));
