@@ -48,7 +48,11 @@ import { logFailure } from '../src/server/failure-log.ts';
 import { serviceEnvironment } from '../src/providers/process.ts';
 import { createIntegrationIdentityCheckpoint } from '../src/server/integration-identity.ts';
 import { createIntegrationBrowser } from '../src/server/integration-browser.ts';
-import { createDiscoveredTransport, safeRemoteFetch } from '../src/providers/discovered/remote.ts';
+import {
+  createDiscoveredTransport,
+  publicEndpoint,
+  safeRemoteFetch,
+} from '../src/providers/discovered/remote.ts';
 import { createAgentRuntime } from '../src/runtime/index.ts';
 import { createDiscoveredConnections } from '../src/server/discovered-connections.ts';
 import { registerLocalAccess } from '../src/server/access.ts';
@@ -7534,9 +7538,40 @@ test(
     const key = randomBytes(32);
     const keyStore = { id: 'fixture', configured: true, getKey: async () => key };
     const grantVault = await createAppGrantVault(pool, { ownerId, keyStore });
-    const transport = createDiscoveredTransport(async () => {
-      throw new Error('Proposal creation must not call the remote server.');
-    });
+    const resolutions = new Map<string, Array<{ address: string; family: number }>>([
+      ['lan.example.test', [{ address: '192.168.8.8', family: 4 }]],
+      ['public.example.test', [{ address: '93.184.216.34', family: 4 }]],
+    ]);
+    const lookupFailures = new Map<string, Error>([
+      [
+        'missing.example.test',
+        Object.assign(new Error('getaddrinfo ENOTFOUND missing.example.test 198.51.100.8'), {
+          code: 'ENOTFOUND',
+          syscall: 'getaddrinfo',
+        }),
+      ],
+      [
+        'odd.example.test',
+        Object.assign(new Error('connect ECONNREFUSED 203.0.113.50'), { code: 'ECONNREFUSED' }),
+      ],
+    ]);
+    const transport = createDiscoveredTransport(
+      async () => {
+        throw new Error('Proposal creation must not call the remote server.');
+      },
+      (endpoint) =>
+        publicEndpoint(endpoint, async (host) => {
+          const failure = lookupFailures.get(host);
+          if (failure) throw failure;
+          const found = resolutions.get(host);
+          if (!found)
+            throw Object.assign(new Error('getaddrinfo ENOTFOUND'), {
+              code: 'ENOTFOUND',
+              syscall: 'getaddrinfo',
+            });
+          return found;
+        }),
+    );
     const authorizations: Array<{ endpoint: string; clientId?: string }> = [];
     const oauth: Parameters<typeof createDiscoveredConnections>[1]['oauth'] = {
       async begin(endpoint, redirectUri, _state, _scope, clientId) {
@@ -7560,20 +7595,100 @@ test(
       transport,
       oauth,
     };
-    (await createDiscoveredConnections(pool, options)).registerRoutes(app);
+    const discovered = await createDiscoveredConnections(pool, options);
+    const provider = fakeProvider({
+      id: 'unused',
+      authorize: async () => {
+        throw new Error('No provider account may be opened.');
+      },
+      search: async () => {
+        throw new Error('No native provider may be searched.');
+      },
+      execute: async () => {
+        throw new Error('No native provider may be read.');
+      },
+    });
+    provider.configured = false;
+    (
+      await createIntegrations(pool, {
+        ownerId,
+        baseUrl: 'http://localhost:4310',
+        provider,
+        wake: async () => {},
+        discovered,
+      })
+    ).registerRoutes(app);
     const create = (payload: Record<string, unknown>) =>
       app.inject({ method: 'POST', url: '/api/apps/mcp', payload });
     const input = { name: 'Fixture MCP', endpoint: 'https://93.184.216.34/mcp', auth: 'oauth' };
-    for (const endpoint of [
-      'https://127.0.0.1/mcp',
-      'https://192.168.1.1/mcp',
-      'http://93.184.216.34/mcp',
-      'https://93.184.216.34/mcp?token=synthetic',
-      'https://93.184.216.34/mcp#secret',
-      'https://user:synthetic@93.184.216.34/mcp',
-    ]) {
-      const response = await create({ ...input, endpoint });
+    const privateNetwork =
+      'This server address resolves to a private network, which is blocked. Use a public HTTPS address.';
+    const wrongPort = 'Use port 80 or 443. Other ports are blocked.';
+    const needsHttps = 'Use a public HTTPS address. HTTP server addresses are blocked.';
+    const queryOrFragment = 'Remove the query or fragment from the server address.';
+    const embeddedSecret = 'Remove the username and password from the server address.';
+    const unresolved =
+      'This server address could not be resolved. Check the hostname and use a public HTTPS address.';
+    const refused = 'Use a public HTTPS server address. This one was refused.';
+    const refusals = [
+      { endpoint: 'http://10.0.0.5/mcp', message: privateNetwork, hidden: ['10.0.0.5'] },
+      { endpoint: 'https://127.0.0.1/mcp', message: privateNetwork, hidden: ['127.0.0.1'] },
+      { endpoint: 'https://192.168.1.1/mcp', message: privateNetwork, hidden: ['192.168.1.1'] },
+      {
+        endpoint: 'https://lan.example.test/mcp',
+        message: privateNetwork,
+        hidden: ['192.168.8.8'],
+      },
+      {
+        endpoint: 'https://93.184.216.34:8443/mcp',
+        message: wrongPort,
+        hidden: ['93.184.216.34', '8443'],
+      },
+      { endpoint: 'http://93.184.216.34/mcp', message: needsHttps, hidden: ['93.184.216.34'] },
+      {
+        endpoint: 'https://93.184.216.34/mcp?token=synthetic',
+        message: queryOrFragment,
+        hidden: ['synthetic', '93.184.216.34'],
+      },
+      {
+        endpoint: 'https://93.184.216.34/mcp#secret',
+        message: queryOrFragment,
+        hidden: ['secret', '93.184.216.34'],
+      },
+      {
+        endpoint: 'https://user:synthetic@93.184.216.34/mcp',
+        message: embeddedSecret,
+        hidden: ['synthetic', '93.184.216.34'],
+      },
+      {
+        endpoint: 'https://missing.example.test/mcp',
+        message: unresolved,
+        hidden: ['198.51.100.8', 'ENOTFOUND', 'getaddrinfo', 'missing.example.test'],
+      },
+      {
+        endpoint: 'https://odd.example.test/mcp',
+        message: refused,
+        hidden: ['203.0.113.50', 'ECONNREFUSED', 'odd.example.test'],
+      },
+    ];
+    assert.equal(
+      new Set([
+        privateNetwork,
+        wrongPort,
+        needsHttps,
+        queryOrFragment,
+        embeddedSecret,
+        unresolved,
+        refused,
+      ]).size,
+      7,
+    );
+    for (const item of refusals) {
+      const response = await create({ ...input, endpoint: item.endpoint });
       assert.equal(response.statusCode, 400, response.body);
+      assert.deepEqual(response.json(), { error: item.message });
+      for (const secret of item.hidden)
+        assert.equal(response.body.includes(secret), false, `${item.endpoint} ${secret}`);
     }
     for (const auth of ['bearer', 'x-api-key']) {
       const rejected = await create({ ...input, auth, clientIdRequired: true });
@@ -7582,6 +7697,19 @@ test(
     assert.equal((await create({ ...input, clientIdRequired: 'true' })).statusCode, 400);
     assert.equal((await create({ ...input, ownerId: 'foreign-owner' })).statusCode, 400);
     assert.equal((await pool.query('SELECT id FROM discovered_connection_proposals')).rowCount, 0);
+    const named = await create({ ...input, endpoint: 'https://public.example.test/mcp' });
+    assert.equal(named.statusCode, 200, named.body);
+    assert.equal(named.body.includes('93.184.216.34'), false);
+    assert.equal(named.body.includes('192.168.8.8'), false);
+    assert.equal(
+      (
+        await pool.query<{ paths: Array<{ endpoint: string }> }>(
+          'SELECT paths FROM discovered_connection_proposals WHERE id=$1',
+          [named.json().id],
+        )
+      ).rows[0].paths[0].endpoint,
+      'https://public.example.test/mcp',
+    );
     const response = await create(input);
     assert.equal(response.statusCode, 200, response.body);
     assert.equal(response.headers['cache-control'], 'no-store');

@@ -8,7 +8,7 @@ import { isDeepStrictEqual } from 'node:util';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import type { RequestOptions } from '@modelcontextprotocol/sdk/shared/protocol.js';
-import { isPublicAddress, publicUrl } from '../agent-browser/network.ts';
+import { isPublicAddress, publicUrl, type AddressResolver } from '../agent-browser/network.ts';
 import type { DiscoveredTool, DiscoveredTransport } from '../../ports/discovered.ts';
 import { appFile, mcpFiles } from '../app-files.ts';
 import { fileBytes } from '../../shared/files.ts';
@@ -308,8 +308,8 @@ export function ownerFetch(origin: string): typeof safeRemoteFetch {
   return (input, init) => safeRemoteFetch(input, init, dependencies);
 }
 
-async function publicEndpoint(endpoint: string) {
-  const checked = await publicUrl(endpoint);
+export async function publicEndpoint(endpoint: string, resolver?: AddressResolver) {
+  const checked = await publicUrl(endpoint, resolver);
   if (checked.url.protocol !== 'https:' || checked.url.hash || checked.url.search)
     throw new Error('Use a public HTTPS service address without a query or fragment.');
   return checked.url.href;

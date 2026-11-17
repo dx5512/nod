@@ -175,6 +175,49 @@ function error(message: string, statusCode = 400) {
   return new DiscoveredConnectionError(message, statusCode);
 }
 
+const dnsLookupFailures = new Set([
+  'EAI_AGAIN',
+  'EAI_FAIL',
+  'EAI_NODATA',
+  'EBADNAME',
+  'EFORMERR',
+  'ENODATA',
+  'ENOTFOUND',
+  'ESERVFAIL',
+]);
+
+function mcpEndpointRefusal(endpoint: string, cause: unknown) {
+  const message = cause instanceof Error ? cause.message : '';
+  const extra = cause as { code?: unknown; syscall?: unknown };
+  const code = cause instanceof Error && typeof extra.code === 'string' ? extra.code : '';
+  const syscall = cause instanceof Error && typeof extra.syscall === 'string' ? extra.syscall : '';
+  if (message === 'Private network destinations are blocked.')
+    return 'This server address resolves to a private network, which is blocked. Use a public HTTPS address.';
+  if (syscall === 'getaddrinfo' || dnsLookupFailures.has(code))
+    return 'This server address could not be resolved. Check the hostname and use a public HTTPS address.';
+  let url: URL | undefined;
+  try {
+    url = new URL(endpoint);
+  } catch {
+    url = undefined;
+  }
+  if (!url || message === 'A valid public HTTP or HTTPS URL is required.')
+    return 'Enter a valid public HTTPS server address.';
+  if (message === 'Only public HTTP and HTTPS destinations on ports 80 or 443 are permitted.') {
+    if (url.username || url.password)
+      return 'Remove the username and password from the server address.';
+    if (url.port && url.port !== '80' && url.port !== '443')
+      return 'Use port 80 or 443. Other ports are blocked.';
+    return 'Use HTTP or HTTPS on port 80 or 443, without a username or password.';
+  }
+  if (message === 'Use a public HTTPS service address without a query or fragment.') {
+    if (url.protocol !== 'https:')
+      return 'Use a public HTTPS address. HTTP server addresses are blocked.';
+    if (url.search || url.hash) return 'Remove the query or fragment from the server address.';
+  }
+  return 'Use a public HTTPS server address. This one was refused.';
+}
+
 function headers(
   path: Extract<AccessPath, { kind: 'http' | 'mcp' }>,
   token: string,
@@ -1527,9 +1570,11 @@ export async function createDiscoveredConnections(
         .safeParse(request.body);
       if (!parsed.success) throw error('Enter a name, server URL and authentication method.');
       const { name, auth } = parsed.data;
-      const endpoint = await options.transport.validateEndpoint(parsed.data.endpoint).catch(() => {
-        throw error('Use a public HTTPS server address without a query or fragment.');
-      });
+      const endpoint = await options.transport
+        .validateEndpoint(parsed.data.endpoint)
+        .catch((cause: unknown) => {
+          throw error(mcpEndpointRefusal(parsed.data.endpoint, cause));
+        });
       const service = `mcp-${createHash('sha256').update(endpoint).digest('hex').slice(0, 24)}`;
       const result = await create(
         {
