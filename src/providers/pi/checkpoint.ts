@@ -20,7 +20,7 @@ const requestEntry = 'nod-request';
 
 export function requestStart(manager: SessionManager) {
   const entry = manager
-    .getEntries()
+    .getBranch()
     .findLast((entry) => entry.type === 'custom' && entry.customType === requestEntry);
   return entry?.type === 'custom' ? (entry.data as { at: number }).at : 0;
 }

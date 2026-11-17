@@ -626,7 +626,10 @@ export function createPiAgent(options: {
         ...manager
           .getEntries()
           .flatMap((entry) =>
-            entry.type === 'usage' && entry.kind === 'cache_warm'
+            entry.type === 'usage' &&
+            entry.kind === 'cache_warm' &&
+            entry.provider === model.provider &&
+            [model.id, connection?.textModel?.id].includes(entry.model)
               ? [Date.parse(entry.timestamp)]
               : [],
           ),
