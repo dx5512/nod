@@ -685,6 +685,7 @@ function AccountApp({
     if (sessionState.loading || !session?.user) return;
     const secure = /^\/(?:vault|credentials|payments)\/[^/]+\/?$/.test(path) || path === '/browser';
     if (path === '/memory' && session.settings?.onboardingCompleted) return;
+    if (path === '/report-bug') return;
     capturePageview(
       (!session.settings?.onboardingCompleted || replayingOnboarding(path)) && !secure
         ? '/onboarding'
