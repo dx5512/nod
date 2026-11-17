@@ -634,6 +634,7 @@ export function createPiAgent(options: {
       const cold =
         !last ||
         Date.now() - cachedAt >= warmCache ||
+        (last as { provider?: string }).provider !== model.provider ||
         ![model.id, connection?.textModel?.id].includes((last as { model?: string }).model);
       const restartable = input.restricted === true && input.newRequest === true;
       const priorTokens = restartable
