@@ -427,7 +427,8 @@ function AuthenticatedApp({
   const openPage = (value: string, trigger?: HTMLElement) => {
     const destination = appPagePath(value);
     if (!destination) return;
-    if (settingsPage(destination))
+    if (destination === '/report-bug') void openFeedback();
+    else if (settingsPage(destination))
       openSettings(
         settingsSections.find((section) => section.path === destination)?.label ?? 'General',
         trigger,

@@ -1947,7 +1947,7 @@ function refreshUpdateMenu() {
       Menu.buildFromTemplate([
         { label: 'Open Nod', click: showEngine },
         { label: 'Settings…', click: () => showSettings() },
-        { label: 'Send feedback…', click: showFeedback },
+        { label: 'Report bug…', click: showFeedback },
         {
           label,
           enabled: Boolean(updates) && !checkingUpdates,
@@ -2792,7 +2792,7 @@ else {
             submenu: [
               { role: 'about' },
               { label: 'Settings…', accelerator: 'CmdOrCtrl+,', click: () => showSettings() },
-              { label: 'Send feedback…', click: showFeedback },
+              { label: 'Report bug…', click: showFeedback },
               {
                 id: 'desktop-update',
                 label: 'Check for Updates…',

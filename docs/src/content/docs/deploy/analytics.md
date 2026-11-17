@@ -36,7 +36,7 @@ Opt-out drops unsent events. Turning sharing back on doesn't revive events from 
 
 ### Stop sharing or delete past data
 
-Turning sharing off stops new analytics events and person-profile updates. It doesn't delete past PostHog or Customer.io data, including About you answers and an email address already stored on a profile. An email submission already in flight may still reach either service when sharing is turned off. Use **Send feedback** or privacy@n8n.io to request deletion from the Nod team.
+Turning sharing off stops new analytics events and person-profile updates. It doesn't delete past PostHog or Customer.io data, including About you answers and an email address already stored on a profile. An email submission already in flight may still reach either service when sharing is turned off. Write to privacy@n8n.io to request deletion from the Nod team.
 
 ## Identity and environments
 

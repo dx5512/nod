@@ -1205,8 +1205,9 @@ async function failTurn(
   turnId: string,
   present: ThreadDependencies['present'],
   error = interrupted,
-  { next, modelFailure }: { next?: string; modelFailure?: boolean } = {},
+  { next, failure }: { next?: string; failure?: 'model' | 'unknown' } = {},
 ) {
+  const modelFailure = failure === 'model';
   const turn = await transaction(async (client) => {
     const thread = await lockThread(client);
     const turn = (
@@ -1265,7 +1266,9 @@ async function failTurn(
         : `I couldn't finish ${work ? `“${work}”` : 'this'}. ${error}${next ? ` ${next}` : ''}`;
   const message = modelFailure
     ? `${body}\n\n[Change the model or check its connection in Settings > Models](/settings/models).`
-    : body;
+    : failure === 'unknown'
+      ? `${body}\n\n[Report this bug to the Nod team](/report-bug).`
+      : body;
   await transaction(async (client) => {
     if ((await lockThread(client)).id !== turn.thread_id) return;
     const current = await client.query(
@@ -2319,7 +2322,7 @@ async function executeTurn(turn: any, dependencies: ThreadDependencies) {
       failure = error instanceof ModelRequestError ? 'model' : 'unknown';
       if (
         await failTurn(turnId, dependencies.present, failureText(error), {
-          modelFailure: failure === 'model',
+          failure,
           next: failure === 'model' ? dependencies.modelAlternative?.() : undefined,
         })
       )

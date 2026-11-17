@@ -7,7 +7,7 @@ sidebar:
 
 This page lists common problems, why they happen and how to fix them. Headings match the error message where Nod shows one.
 
-If your problem isn't here, [send feedback with a diagnostic report](#send-feedback-with-a-diagnostic-report).
+If your problem isn't here, [report a bug with a diagnostic report](#report-a-bug-with-a-diagnostic-report).
 
 ## Install from source
 
@@ -99,11 +99,11 @@ On Windows, the message reads "Nod needs more free disk space to prepare its pri
 
 ### Setup fails or stops partway
 
-Retry first. Do not delete the profile, VM, database, or runtime cache by hand to fix it. If it still fails, [send feedback](#send-feedback-with-a-diagnostic-report). If the chat cannot open, select **Show startup log** on the error screen. Send that log with a screenshot of the error. When a setup command fails, the message includes the last lines of its output.
+Retry first. Do not delete the profile, VM, database, or runtime cache by hand to fix it. If it still fails, [report a bug](#report-a-bug-with-a-diagnostic-report). If the chat cannot open, select **Show startup log** on the error screen. Send that log with a screenshot of the error. When a setup command fails, the message includes the last lines of its output.
 
 On Mac and Linux, Nod records new first setups and marks them complete after the computer passes its startup checks. If a recorded setup fails or is interrupted, the next attempt replaces the unfinished computer. A failed replacement reports its own error and stops the attempt. Computers that completed setup are kept. Missing configuration for an existing computer also stops setup and keeps its files.
 
-An interrupted Mac setup from an older version can lack that record. If retry still fails, keep its files and [send feedback with the startup log](#send-feedback-with-a-diagnostic-report).
+An interrupted Mac setup from an older version can lack that record. If retry still fails, keep its files and [report a bug with the startup log](#report-a-bug-with-a-diagnostic-report).
 
 If the background service does not respond within two minutes, the startup log records the elapsed wait and the last health check failure. It also records whether the service reported its port. An unexpected service exit has a separate log entry.
 
@@ -131,7 +131,7 @@ Ubuntu kernels `7.0.0-42` and `7.0.0-43` can block signals inside containers. Th
 
 Install a Nod build with the container profile repair, then quit and reopen Nod. The repair keeps AppArmor active and preserves the database volume. It also prevents further automatic kernel changes and VM restarts. A restart alone does not repair the old profile. Do not delete the VM or database to fix this failure.
 
-If setup still fails, select **Show startup log** and [send feedback](#send-feedback-with-a-diagnostic-report). This error alone does not show whether the database files are damaged.
+If setup still fails, select **Show startup log** and [report a bug](#report-a-bug-with-a-diagnostic-report). This error alone does not show whether the database files are damaged.
 
 ## Models and apps
 
@@ -143,11 +143,11 @@ ChatGPT sign-in receives its callback on port 1455. Another Nod app or another s
 
 Return to **Apps** and select **Connect** again. Keep the sign-in page and any window it opens until authorization finishes. A copied, expired or already used link cannot finish a connection. If the system's encrypted storage is locked, unlock it and restart Nod.
 
-If the connection service refuses the request, the sign-in page names its reason and HTTP status, such as `public_budget_exceeded` and `HTTP 429`. If the connection service is unavailable or reports a limit, try again later. If the problem persists, [send feedback with a diagnostic report](/deploy/troubleshooting/#send-feedback-with-a-diagnostic-report).
+If the connection service refuses the request, the sign-in page names its reason and HTTP status, such as `public_budget_exceeded` and `HTTP 429`. If the connection service is unavailable or reports a limit, try again later. If the problem persists, [report a bug with a diagnostic report](/deploy/troubleshooting/#report-a-bug-with-a-diagnostic-report).
 
 ### An app tool fails with HTTP 403
 
-If an app tool error shows `HTTP 403` and a UTC time, [send feedback with a diagnostic report](/deploy/troubleshooting/#send-feedback-with-a-diagnostic-report). Include that time and any Cloudflare Ray ID in your feedback text. The displayed `0x` is a formatting prefix; support removes it before searching Cloudflare.
+If an app tool error shows `HTTP 403` and a UTC time, [report a bug with a diagnostic report](/deploy/troubleshooting/#report-a-bug-with-a-diagnostic-report). Include that time and any Cloudflare Ray ID in your feedback text. The displayed `0x` is a formatting prefix; support removes it before searching Cloudflare.
 
 ### App sign-in opens an unreachable address on a remote server
 
@@ -194,11 +194,11 @@ Ask Nod to check the result in the app or website before you try again. See [One
 
 ## Get help
 
-### Send feedback with a diagnostic report
+### Report a bug with a diagnostic report
 
-Select **Send feedback** in the chat. In the desktop app, it's also in the menu bar menu. The dialog names the recipient before you send: the Nod team at n8n by default, or your operator's configured collector.
+Select **Report bug** in the chat, or the report link Nod adds when something fails. In the desktop app, **Report bug…** is also in the menu bar menu. The dialog names the recipient before you send: the Nod team at n8n by default, or your operator's configured collector.
 
-If the workspace crashes, use **Send feedback** on the error screen before **Reload Nod** to include the captured error.
+If the workspace crashes, use **Report bug** on the error screen before **Reload Nod** to include the captured error.
 
 Choose a feedback category and describe what happened. Include what you expected, what actually happened, and the steps that trigger the problem. **Include diagnostic report** starts selected for every category until you change it. Nod remembers your choice for your account on this device after sending or discarding a draft.
 
