@@ -588,16 +588,6 @@ export function createPiAgent(options: {
       closeInterruptedCalls(manager);
       const prior = manager.buildSessionContext().messages;
       const last = prior.findLast((message) => message.role === 'assistant');
-      const cachedAt = Math.max(
-        last?.timestamp ?? 0,
-        ...manager
-          .getEntries()
-          .flatMap((entry) =>
-            entry.type === 'usage' && entry.kind === 'cache_warm'
-              ? [Date.parse(entry.timestamp)]
-              : [],
-          ),
-      );
       const priorTokens =
         input.restartable === true
           ? prior.reduce((total, message) => total + estimateTokens(message), 0)
@@ -606,12 +596,9 @@ export function createPiAgent(options: {
         input.restartable === true &&
         prior.length > 0 &&
         (!last ||
-          Date.now() - cachedAt >= warmCache ||
-          (input.restricted === true &&
-            (priorTokens > budget.compaction.keepRecentTokens ||
-              ![model.id, connection?.textModel?.id].includes(
-                (last as { model?: string }).model,
-              ))));
+          Date.now() - last.timestamp >= warmCache ||
+          priorTokens > budget.compaction.keepRecentTokens ||
+          ![model.id, connection?.textModel?.id].includes((last as { model?: string }).model));
       const cached: { owner?: string; stable?: string[] } = { owner: input.ownerContext };
       const keepCache =
         restart &&
@@ -626,7 +613,7 @@ export function createPiAgent(options: {
       }
       if (restart)
         manager.appendCompaction(
-          'Earlier work is saved outside this context. Use the current request and fresh source reads.',
+          'Earlier checks are saved outside this context. Use the current request and fresh source reads.',
           null,
           priorTokens,
         );

@@ -51,7 +51,7 @@ Pi is the agent harness Nod runs on. It keeps the transcript, calls the model an
 
 Owner replies and corrections steer unfinished work until the owner cancels or replaces it. Completed earlier requests are context, not a queue.
 
-Recent chat history goes into the prompt only when a turn starts without Pi context: a new session, or a new chat message or observer batch that starts fresh because the cache went cold, or an observer batch whose context outgrew what compaction keeps. A resumed session gets new background messages since its previous turn started. Neither includes owner messages of a [withdrawn turn](/how-it-works/threads-and-turns/#stop-and-failures); the session's next turn gets `withdrawnRequest` instead, so the model doesn't continue that request unless the owner asks again.
+Recent chat history goes into the prompt only when Pi has no saved session. A resumed session gets new background messages since its previous turn started. Neither includes owner messages of a [withdrawn turn](/how-it-works/threads-and-turns/#stop-and-failures); the session's next turn gets `withdrawnRequest` instead, so the model doesn't continue that request unless the owner asks again.
 
 History search returns message IDs and turn IDs. Its `around` option accepts either kind. A turn ID opens the context around that turn's first visible message. The anchor message is complete; nearby messages can be shortened. Reads remain limited to the owner's active conversation. Hidden messages and turns with no visible message cannot serve as anchors.
 
