@@ -196,7 +196,7 @@ Ask Nod to check the result in the app or website before you try again. See [One
 
 ### Report a bug with a diagnostic report
 
-Select **Report bug** in the chat, or the report link Nod adds when something fails. In the desktop app, **Report bug…** is also in the menu bar menu. The dialog names the recipient before you send: the Nod team at n8n by default, or your operator's configured collector.
+Select **Report bug** in the chat, or the report link Nod adds when a request stops on an unexpected error outside the model connection. In the desktop app, **Report bug…** is also in the menu bar menu. The dialog names the recipient before you send: the Nod team at n8n by default, or your operator's configured collector.
 
 If the workspace crashes, use **Report bug** on the error screen before **Reload Nod** to include the captured error.
 

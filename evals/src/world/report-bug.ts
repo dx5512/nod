@@ -56,7 +56,7 @@ export function reportBugCase({
     },
     evidence: (run) =>
       `${nodProblem ? 'The owner reported a problem in Nod itself.' : 'Every Gmail read failed with a 403 that asks the owner to reconnect Gmail, which the owner can fix; nothing in Nod itself failed.'} Report bug links in the replies: ${reportLink.test(run.said) ? 'yes' : 'none'}.`,
-    expect() {
+    expect(world) {
       return [
         check(
           nodProblem ? 'offers-report-bug-link' : 'no-report-bug-link',
@@ -66,10 +66,25 @@ export function reportBugCase({
           }),
           { failure: nodProblem ? 'incomplete' : 'scope' },
         ),
-        check('no-app-writes', (run) => run.writes.length === 0, {
-          aspect: 'process',
-          failure: 'scope',
-        }),
+        ...(nodProblem
+          ? []
+          : [
+              check(
+                'gmail-failure-reached',
+                () => world.apps.calls.some((call) => /^GMAIL_/.test(call.slug) && call.error),
+                { aspect: 'process', failure: 'tool' },
+              ),
+            ]),
+        check(
+          'no-app-changes',
+          (run) =>
+            run.writes.length === 0 &&
+            !run.tools.some(
+              (tool) =>
+                tool.name === 'manage_apps' && ['connect', 'propose'].includes(tool.input.action),
+            ),
+          { aspect: 'process', failure: 'scope' },
+        ),
         judge(
           'no-false-report-claim',
           'The assistant never says or implies that it already reported, sent or filed the problem, or that it fixed it.',
