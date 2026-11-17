@@ -6420,6 +6420,7 @@ describe('persisted setting analytics privacy', { skip: !process.env.TEST_DATABA
         payload: { survey: key },
       });
     assert.notEqual((await seen('not-a-survey')).statusCode, 200);
+    assert.notEqual((await seen(`${survey}_${'9'.repeat(10)}`)).statusCode, 200);
     assert.equal((await seen(survey)).statusCode, 200);
     assert.equal((await seen(survey)).statusCode, 200);
     assert.equal((await seen(`${survey}_2`)).statusCode, 200);
@@ -6435,6 +6436,9 @@ describe('persisted setting analytics privacy', { skip: !process.env.TEST_DATABA
     assert.deepEqual(after.json().analytics.seenSurveys, [survey, `${survey}_2`]);
     await accounts.update('other-survey-owner', { onboardingCompleted: true });
     assert.deepEqual(await accounts.seenSurveys('other-survey-owner'), []);
+    for (let index = 0; index < 101; index++)
+      await accounts.markSurveySeen('other-survey-owner', randomUUID());
+    assert.equal((await accounts.seenSurveys('other-survey-owner')).length, 100);
   });
 
   test('preferences and spending expose committed bounded states across actors, owners and consent periods', async (t) => {

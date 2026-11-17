@@ -824,9 +824,11 @@ export function captureSurvey(
         }),
     });
     if (event !== 'shown') return;
+    const key = surveyKey(survey);
+    configuration.seenSurveys = [...(configuration.seenSurveys ?? []), key];
     void api('/api/account/survey-seen', {
       method: 'POST',
-      body: JSON.stringify({ survey: surveyKey(survey) }),
+      body: JSON.stringify({ survey: key }),
     }).catch(() => {});
     localStorage.setItem('lastSeenSurveyDate', new Date().toISOString());
   } catch {}

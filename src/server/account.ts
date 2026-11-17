@@ -266,7 +266,7 @@ export function createAccountSession(options: {
     app.post('/api/account/survey-seen', async (request, reply) => {
       if (!guard(request, reply)) return;
       const { survey } = z
-        .object({ survey: z.string().regex(/^[0-9a-f-]{36}(_\d+)?$/i) })
+        .object({ survey: z.string().regex(/^[0-9a-f-]{36}(_\d{1,9})?$/i) })
         .strict()
         .parse(request.body);
       await options.accounts.markSurveySeen(owner, survey);

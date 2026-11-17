@@ -66,7 +66,7 @@ export function createAccountStore(
     async markSurveySeen(ownerId, survey) {
       await database.query(
         `UPDATE account_settings SET seen_surveys=array_append(seen_surveys,$2)
-         WHERE owner_id=$1 AND NOT $2=ANY(seen_surveys)`,
+         WHERE owner_id=$1 AND NOT $2=ANY(seen_surveys) AND cardinality(seen_surveys)<100`,
         [ownerId, survey],
       );
     },

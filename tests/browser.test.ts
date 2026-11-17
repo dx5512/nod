@@ -4193,6 +4193,9 @@ test('UI analytics keep answer choices, the survey card and survey flag requests
       assert.ok(card());
       assert.equal(seenRequests.at(-1), survey + '_2');
       await act(() => root.render(null));
+      await act(() => root.render(createElement(SurveyCard)));
+      assert.equal(card(), null);
+      await act(() => root.render(null));
       consent(true);
       client.deferSurveys = true;
       await act(() => root.render(createElement(SurveyCard)));
