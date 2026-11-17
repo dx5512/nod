@@ -5002,6 +5002,61 @@ test('a loaded schema that exceeds the request budget returns to deferred tools'
   assert.ok(sources.some((source) => source.includes(description)));
 });
 
+test('a tool loaded in one turn stays declared in the next turn of the session', async (t) => {
+  const { bodies, url, close } = await contextRecoveryServer(0, 1, -1, false, undefined, [
+    { name: 'nod_tool_search', args: { query: 'synthetic_lookup', limit: 1 } },
+    { name: 'synthetic_lookup', args: {} },
+  ]);
+  t.after(close);
+  const access = smallContextAccess('compatible', 'fixture-context', 131_072);
+  access.read = async () => ({ type: 'endpoint', url, key: 'fixture-key' });
+  access.definition.spec = { ...access.definition.spec, baseUrl: url };
+  const directory = await mkdtemp(join(tmpdir(), 'nod-pi-loaded-tools-'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const { workspace } = await hostSandbox(t);
+  const agent = createPiAgent({
+    provider: 'compatible',
+    sessionRoot: directory,
+    resolve: async () => access,
+  });
+  t.after(() => agent.dispose());
+  const threadId = randomUUID();
+  let lookups = 0;
+  const declared = (body: (typeof bodies)[number]) =>
+    (body.tools ?? []).map((tool) => (tool as { function: { name: string } }).function.name);
+  const events: AgentEvent[] = [];
+  for (const text of ['Look up the synthetic record.', 'Look it up again.']) {
+    const session = await agent.open({
+      ...fakeExecution(threadId),
+      restricted: true,
+      systemPrompt: 'Use synthetic tools.',
+      workspace,
+      runTool: async (_name, _params, run) => run(),
+      tools: [
+        {
+          name: 'synthetic_lookup',
+          description: 'Look up the synthetic record.',
+          deferred: { namespace: 'synthetic', description: 'Synthetic tools.' },
+          parameters: Type.Object({}),
+          execute: async () => {
+            lookups++;
+            return { content: [{ type: 'text', text: 'Synthetic record.' }] };
+          },
+        },
+      ],
+      shouldStop: () => false,
+      onEvent: (event) => events.push(event),
+    });
+    await session.prompt(text, []);
+    await session.dispose();
+  }
+  assert.ok(!events.some((event) => event.type === 'error'));
+  assert.equal(lookups, 1);
+  assert.equal(bodies.length, 4);
+  assert.ok(!declared(bodies[0]!).includes('synthetic_lookup'));
+  assert.ok(declared(bodies[3]!).includes('synthetic_lookup'));
+});
+
 test('a failed request cannot remain inside a compaction checkpoint', async (t) => {
   for (const prior of [false, true])
     await t.test(prior ? 'with a valid checkpoint' : 'without a checkpoint', async (t) => {

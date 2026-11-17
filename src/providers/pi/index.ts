@@ -12,6 +12,7 @@ import {
   isRecoverableLength,
   clampThinkingLevel,
   contentText,
+  getCurrentTools,
   type AssistantMessage,
 } from '@earendil-works/pi-ai';
 import { Agent as Connections, Dispatcher1Wrapper, buildConnector } from 'undici';
@@ -997,13 +998,21 @@ export function createPiAgent(options: {
         });
         sessionModel = runtime.getModel(model.provider, id)!;
       }
+      const loaded = new Set(
+        getCurrentTools(
+          manager.getBranch().flatMap((entry) => (entry.type === 'message' ? [entry.message] : [])),
+        ).map((tool) => tool.name),
+      );
       const directTools = [
         ...tools
-          .filter((tool) => budget.compact || tool.exposure !== 'deferred')
+          .filter((tool) => budget.compact || tool.exposure !== 'deferred' || loaded.has(tool.name))
           .map((tool) => tool.name),
         ...extensions.extensions.flatMap((extension) =>
           [...extension.tools.entries()]
-            .filter(([, tool]) => budget.compact || tool.definition.exposure !== 'deferred')
+            .filter(
+              ([name, tool]) =>
+                budget.compact || tool.definition.exposure !== 'deferred' || loaded.has(name),
+            )
             .map(([name]) => name),
         ),
       ];
