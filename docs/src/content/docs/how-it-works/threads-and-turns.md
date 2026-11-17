@@ -13,6 +13,8 @@ The short version: you have one thread. Every piece of work on it runs in a sess
 
 Each owner has one active row in the `threads` table, shared by web, Telegram and WhatsApp. The thread ID keys the sandbox workspace and the chat session: its persistent Pi session (the transcript) and its browser.
 
+A new message keeps the chat's Pi context only while the model's cache is warm: for five minutes after the last request or cache refresh. After that, the turn starts fresh with recent chat, so it doesn't pay again for earlier tool results. The transcript stays saved, and history search still finds earlier messages. Your answer to Nod's question, and any other resume, keeps the session's context.
+
 The code lives in [`src/server/thread.ts`](https://github.com/n8n-io/nod/blob/main/src/server/thread.ts).
 
 ## Every piece of work is a turn

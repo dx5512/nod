@@ -1266,6 +1266,86 @@ test('a proactive check starts fresh once its cache is cold or its context outgr
   }
 });
 
+test('a new chat message starts from recent conversation once the cache is cold, and answers keep their context', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'nod-pi-chat-'));
+  const prompts: string[] = [];
+  let answeredAgo = 0;
+  const factory: typeof createAgentSession = async (options) => {
+    const result = await createAgentSession(options);
+    result.session.agent.streamFunction = (model, request) => {
+      prompts.push(JSON.stringify(request.messages));
+      const stream = createAssistantMessageEventStream();
+      stream.push({
+        type: 'done',
+        reason: 'stop',
+        message: {
+          ...fauxAssistantMessage('Answered.'),
+          api: model.api,
+          provider: model.provider,
+          model: model.id,
+          timestamp: Date.now() - answeredAgo,
+        },
+      });
+      return stream;
+    };
+    return result;
+  };
+  const runtime = createAgentRuntime({
+    agent: createPiAgent({
+      provider: 'openai',
+      apiKey: 'runtime-fixture-key',
+      sessionRoot: join(directory, 'sessions'),
+      createSession: factory,
+    }),
+    computer: fakeComputer(),
+    workspace: fakeWorkspace(),
+  });
+  const threadId = randomUUID();
+  const chat = (prompt: string, resumed = false) =>
+    runtime.runTurn({
+      ...({} as RuntimeContext),
+      threadId,
+      turnId: randomUUID(),
+      sessionId: threadId,
+      resumed,
+      prompt,
+      history: [{ role: 'assistant', text: 'RECENT-REPLY', createdAt: new Date().toISOString() }],
+      workspacePath: directory,
+      signal: new AbortController().signal,
+      attachments: [],
+      emit: async () => {},
+      reply: async () => {},
+      delta: () => {},
+    });
+  try {
+    answeredAgo = 6 * 60_000;
+    await chat('BIG-TOOL-TURN ' + 'x '.repeat(20_000));
+    await chat('CALENDAR-QUESTION');
+    assert.equal(prompts[1].includes('BIG-TOOL-TURN'), false);
+    assert.equal(prompts[1].includes('RECENT-REPLY'), true);
+    answeredAgo = 0;
+    await chat('WARM-FOLLOW-UP');
+    await chat('NEXT-FOLLOW-UP');
+    assert.equal(prompts[3].includes('WARM-FOLLOW-UP'), true);
+    answeredAgo = 6 * 60_000;
+    await chat('WAITING-QUESTION');
+    await chat('Owner answered', true);
+    assert.equal(prompts[5].includes('WAITING-QUESTION'), true);
+    await chat('KEPT-WARM');
+    openLocalSession(join(directory, 'sessions', threadId)).appendUsage(
+      'cache_warm',
+      'openai',
+      'gpt-6.1-sol',
+      fauxAssistantMessage('').usage,
+    );
+    await chat('AFTER-WARMING');
+    assert.equal(prompts[7].includes('KEPT-WARM'), true);
+  } finally {
+    await runtime.dispose();
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
 test('a restarted proactive check within the hour reads its stable context from a one-hour cache, and a warm one keeps the rolling cache', async (t) => {
   const { createPiModelBackend } = await import('../src/providers/pi/models.ts');
   const backend = createPiModelBackend({
