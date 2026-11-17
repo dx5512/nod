@@ -1485,6 +1485,10 @@ describe('account routes', () => {
         await activity.wait?.();
         return owner === 'local-owner' ? Math.min(activity.days, limit) : 0;
       },
+      async seenSurveys() {
+        return [];
+      },
+      async markSurveySeen() {},
       async update(_owner, input) {
         calls.writes++;
         const saved = record;
@@ -6404,6 +6408,33 @@ describe('persisted setting analytics privacy', { skip: !process.env.TEST_DATABA
     await message(f.owner, 'user', currentThread, '2026-11-03T12:00:00Z');
     assert.equal(await createAccountStore(f.database).activeDays(f.owner, 3), 3);
     assert.equal(await accounts.activeDays('owner-without-messages', 3), 0);
+
+    await accounts.update(f.owner, { onboardingCompleted: true });
+    assert.deepEqual((await session()).analytics.seenSurveys, []);
+    const survey = randomUUID();
+    const seen = (key: string) =>
+      app.inject({
+        method: 'POST',
+        url: '/api/account/survey-seen',
+        headers: { origin: 'http://localhost:4399' },
+        payload: { survey: key },
+      });
+    assert.notEqual((await seen('not-a-survey')).statusCode, 200);
+    assert.equal((await seen(survey)).statusCode, 200);
+    assert.equal((await seen(survey)).statusCode, 200);
+    assert.equal((await seen(`${survey}_2`)).statusCode, 200);
+    const restarted = Fastify();
+    t.after(() => restarted.close());
+    createAccountSession({
+      accounts: createAccountStore(f.database),
+      analytics: f.analytics,
+      origin: 'http://localhost:4399',
+      localUser: { id: f.owner, name: 'Synthetic Owner', email: null, avatarUrl: null },
+    }).register(restarted);
+    const after = await restarted.inject({ method: 'GET', url: '/api/session' });
+    assert.deepEqual(after.json().analytics.seenSurveys, [survey, `${survey}_2`]);
+    await accounts.update('other-survey-owner', { onboardingCompleted: true });
+    assert.deepEqual(await accounts.seenSurveys('other-survey-owner'), []);
   });
 
   test('preferences and spending expose committed bounded states across actors, owners and consent periods', async (t) => {
