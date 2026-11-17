@@ -6436,9 +6436,9 @@ describe('persisted setting analytics privacy', { skip: !process.env.TEST_DATABA
     assert.deepEqual(after.json().analytics.seenSurveys, [survey, `${survey}_2`]);
     await accounts.update('other-survey-owner', { onboardingCompleted: true });
     assert.deepEqual(await accounts.seenSurveys('other-survey-owner'), []);
-    for (let index = 0; index < 101; index++)
-      await accounts.markSurveySeen('other-survey-owner', randomUUID());
-    assert.equal((await accounts.seenSurveys('other-survey-owner')).length, 100);
+    const keys = Array.from({ length: 101 }, () => randomUUID());
+    for (const key of keys) await accounts.markSurveySeen('other-survey-owner', key);
+    assert.deepEqual(await accounts.seenSurveys('other-survey-owner'), keys.slice(1));
   });
 
   test('preferences and spending expose committed bounded states across actors, owners and consent periods', async (t) => {

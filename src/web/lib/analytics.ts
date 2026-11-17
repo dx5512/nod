@@ -791,7 +791,7 @@ export function watchAnalyticsSurvey(listener: (survey?: AnalyticsSurvey) => voi
   };
 }
 
-function surveyKey(survey: AnalyticsSurvey) {
+export function surveyKey(survey: AnalyticsSurvey) {
   return survey.iteration ? `${survey.id}_${survey.iteration}` : survey.id;
 }
 

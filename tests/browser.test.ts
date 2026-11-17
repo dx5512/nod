@@ -4196,6 +4196,13 @@ test('UI analytics keep answer choices, the survey card and survey flag requests
       await act(() => root.render(createElement(SurveyCard)));
       assert.equal(card(), null);
       await act(() => root.render(null));
+      client.surveys = [{ id: survey, type: 'api', current_iteration: 3, questions }];
+      await act(() => root.render(createElement(SurveyCard)));
+      await act(() => card().querySelector('.survey-card-close').click());
+      client.surveys = [{ id: survey, type: 'api', current_iteration: 4, questions }];
+      await act(() => configureAnalytics({ ...configuration, surveys: true, seenSurveys: [survey, survey + '_2', survey + '_3'] }, 'web'));
+      assert.ok(card());
+      await act(() => root.render(null));
       consent(true);
       client.deferSurveys = true;
       await act(() => root.render(createElement(SurveyCard)));
